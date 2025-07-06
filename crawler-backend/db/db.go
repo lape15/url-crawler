@@ -61,7 +61,7 @@ func Migrate() {
 CREATE TABLE IF NOT EXISTS urls (
 	id INT AUTO_INCREMENT PRIMARY KEY,
 	user_id VARCHAR(36) NOT NULL,  
-	url TEXT NOT NULL,
+	url TEXT NOT NULL UNIQUE,
 	html_version VARCHAR(50),
 	page_title TEXT,
 	internal_links_count INT DEFAULT 0,
@@ -95,4 +95,52 @@ func GetUserByUsername(username string) *models.User {
 	}
 
 	return &user
+}
+
+func GetUrlsByUserId(userId string) ([]models.Url, error) {
+	db := GetDB()
+	query := "SELECT id, url, html_version, page_title, internal_links_count, external_links_count, broken_links_count, has_login_form, status, error_message FROM urls WHERE user_id = ?"
+	rows, err := db.Query(query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var urls []models.Url
+	for rows.Next() {
+		var url models.Url
+		err := rows.Scan(&url.ID, &url.URL, &url.HTMLVersion, &url.Title, &url.InternalLinks, &url.ExternalLinks, &url.BrokenLinks, &url.HasLoginForm)
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, url)
+	}
+	return urls, nil
+}
+
+func GetUrlByTitle(link string) *models.Url {
+	db := GetDB()
+	query := "SELECT id, url, html_version, page_title, internal_links_count, external_links_count, broken_links_count, has_login_form, FROM urls WHERE page_title = ?"
+	row := db.QueryRow(query, link)
+
+	var url models.Url
+	err := row.Scan(&url.ID, &url.URL, &url.HTMLVersion, &url.Title, &url.InternalLinks, &url.ExternalLinks, &url.BrokenLinks, &url.HasLoginForm)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("Url not found")
+		}
+		return nil
+	}
+
+	return &url
+}
+
+func DeleteUrlByTitle(title string) error {
+	db := GetDB()
+	query := "DELETE FROM urls WHERE page_title = ?"
+	_, err := db.Exec(query, title)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,8 +39,7 @@ func Signup(c *gin.Context) {
 	}
 
 	db := db.GetDB()
-	lastInserted, err := db.Exec("INSERT INTO users (id, username, name, password_hash) VALUES (?, ?, ?, ?)", user.ID, user.Username, user.Name, user.HPassword)
-	fmt.Println(lastInserted)
+	db.Exec("INSERT INTO users (id, username, name, password_hash) VALUES (?, ?, ?, ?)", user.ID, user.Username, user.Name, user.HPassword)
 
 	token, err := utils.GenerateJWT(user.ID, user.Username)
 	if err != nil {
