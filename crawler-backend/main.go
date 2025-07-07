@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/lape15/sykell-task-root/auth"
 	"github.com/lape15/sykell-task-root/db"
@@ -16,6 +17,13 @@ func main() {
 	db.InitializeDb()
 	db.Migrate()
 	route := gin.Default()
+	route.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 	route.POST("/signup", auth.Signup)
 	route.POST("/login", auth.Login)
 	api := route.Group("/crawler")

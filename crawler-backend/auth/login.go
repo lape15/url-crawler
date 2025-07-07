@@ -26,14 +26,14 @@ func Login(c *gin.Context) {
 	user := db.GetUserByUsername(credential.Username)
 	fmt.Println(user)
 	if user == nil {
-		c.JSON(404, gin.H{"error": "User not found"})
+		c.JSON(404, gin.H{"error": "User does not exist!"})
 		return
 	}
 
 	doesMatch := utils.ComparePassword(user.HPassword, credential.Password)
 
 	if !doesMatch {
-		c.JSON(401, gin.H{"error": "Invalid password"})
+		c.JSON(401, gin.H{"error": "Password is Incorrect"})
 		return
 	}
 
