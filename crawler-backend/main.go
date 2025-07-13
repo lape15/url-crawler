@@ -30,7 +30,8 @@ func main() {
 	api.Use(auth.WithUserId())
 
 	api.POST("/urls", service.CrawlURL)
-	api.GET("/ws/crawl", service.HandleCrawlWebSocket)
+	api.GET("/urls", service.GetCrawledUrls)
+	route.GET("/crawl", service.HandleCrawlWebSocket)
 
 	log.Println("Server running at http://localhost:8000")
 	route.Run(":8000")

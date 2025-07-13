@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -9,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gocolly/colly"
 	"github.com/gorilla/websocket"
+	"github.com/lape15/sykell-task-root/utils"
 )
 
 var upgrader = websocket.Upgrader{
@@ -25,18 +27,40 @@ var (
 )
 
 func HandleCrawlWebSocket(c *gin.Context) {
-	url := c.Query("url")
 
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+		return
+	}
+
+	userID, err := utils.ParseJWT(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+	fmt.Println("User ID:", userID)
+	url := c.Query("url")
+	fmt.Println("WebSocket connection for URL:", url)
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade failed:", err)
 		return
 	}
-
+	crawlersMutex.Lock()
+	if existingConn, ok := wsConnections[url]; ok {
+		existingConn.Close() // Close old connection
+	}
 	wsConnections[url] = conn
+	crawlersMutex.Unlock()
+
+	// Handle connection lifetime
 	defer func() {
 		crawlersMutex.Lock()
-		delete(wsConnections, url)
+
+		if wsConnections[url] == conn {
+			delete(wsConnections, url)
+		}
 		crawlersMutex.Unlock()
 		conn.Close()
 	}()
@@ -67,5 +91,14 @@ func HandleCrawlWebSocket(c *gin.Context) {
 func WSConnectionForURL(url string) *websocket.Conn {
 	crawlersMutex.Lock()
 	defer crawlersMutex.Unlock()
-	return wsConnections[url]
+
+	conn := wsConnections[url]
+	if conn != nil {
+
+		if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			delete(wsConnections, url)
+			return nil
+		}
+	}
+	return conn
 }

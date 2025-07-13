@@ -2,7 +2,6 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lape15/sykell-task-root/db"
@@ -24,7 +23,7 @@ func Login(c *gin.Context) {
 	}
 
 	user := db.GetUserByUsername(credential.Username)
-	fmt.Println(user)
+
 	if user == nil {
 		c.JSON(404, gin.H{"error": "User does not exist!"})
 		return

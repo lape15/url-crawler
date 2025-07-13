@@ -9,7 +9,7 @@ export const register = (credential: Credential) =>
   API.post('/signup', credential);
 
 API.interceptors.request.use((config) => {
-  if (config.url?.startsWith('/api')) {
+  if (config.url?.startsWith('/crawler')) {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -18,7 +18,3 @@ API.interceptors.request.use((config) => {
   config.headers['Content-Type'] = 'application/json';
   return config;
 });
-export const crawlUrl = (url: string) =>
-  API.post('/api/crawl', {
-    url,
-  });

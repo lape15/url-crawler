@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -43,83 +42,88 @@ func CrawlURL(c *gin.Context) {
 		})
 		return
 	}
-	c.Set("url", crawlerString)
+
 	ws := WSConnectionForURL(crawlerString.URL)
 	if ws == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No active WebSocket connection for this URL"})
 		return
 	}
 
-	result, err := crawl(crawlerString.URL, 2, ws)
+	// Cancellation context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	crawlersMutex.Lock()
+	activeCancelFns[crawlerString.URL] = cancel
+	crawlersMutex.Unlock()
 
-	if err != nil {
-		c.JSON(500, gin.H{
-			"error processing url": err.Error(),
+	// Channel for crawler result
+	resultChan := make(chan CrawlResult)
+	errChan := make(chan error)
+
+	go func() {
+		result, err := crawlWithContext(ctx, crawlerString.URL, 2, ws)
+		if err != nil {
+			errChan <- err
+		}
+		resultChan <- result
+	}()
+
+	select {
+	case result := <-resultChan:
+		userId, _ := c.Get("userID")
+		result.UserID = userId.(string)
+		urlExists, _ := db.GetUrlByTitle(crawlerString.URL)
+		if urlExists == nil {
+			db := db.GetDB()
+			lastInserted, err := db.Exec("INSERT INTO urls (url, html_version, page_title, internal_links_count, external_links_count, broken_links_count, has_login_form,user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", result.URL, result.HTMLVersion, result.Title, result.InternalLinks, result.ExternalLinks, result.BrokenLinks, result.HasLoginForm, result.UserID)
+			if err != nil {
+				ws.WriteJSON(gin.H{"status": "error", "message": "Database error"})
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			result.ID, _ = lastInserted.LastInsertId()
+		} else {
+			result.ID = urlExists.ID
+		}
+		// Notify WS of completion
+		ws.WriteJSON(gin.H{"status": "completed", "message": "Crawl finished successfully"})
+
+		// Send final HTTP response
+		c.JSON(200, gin.H{
+			"message": "Crawling completed",
+			"result":  result,
 		})
+
+	case err := <-errChan:
+		ws.WriteJSON(gin.H{"status": "error", "message": err.Error()})
+
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	userId, _ := c.Get("userID")
-	result.UserID = userId.(string)
+	// Cleanup
+	crawlersMutex.Lock()
+	delete(activeCancelFns, crawlerString.URL)
+	crawlersMutex.Unlock()
 
-	urlExists := db.GetUrlByTitle(crawlerString.URL)
-	var lastInserted sql.Result
-	if urlExists == nil {
-
-		db := db.GetDB()
-		lastInserted, err = db.Exec("INSERT INTO urls (url, html_version, page_title, internal_links_count, external_links_count, broken_links_count, has_login_form,user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", result.URL, result.HTMLVersion, result.Title, result.InternalLinks, result.ExternalLinks, result.BrokenLinks, result.HasLoginForm, result.UserID)
-
-		if err != nil {
-			c.JSON(500, gin.H{
-				"error processing url": err.Error(),
-			})
-			return
-		}
-		result.ID, _ = lastInserted.LastInsertId()
-	} else {
-		result.ID = urlExists.ID
-	}
-	ws.WriteJSON(map[string]string{"status": "done", "message": "Crawling completed"})
-	ws.Close()
-	delete(wsConnections, crawlerString.URL)
-	c.JSON(200, gin.H{
-		"message": "Crawling completed",
-		"result":  result,
-	})
 }
 
-func crawl(currentURL string, maxDepth int, ws *websocket.Conn) (CrawlResult, error) {
+func crawlWithContext(ctx context.Context, currentURL string, maxDepth int, ws *websocket.Conn) (CrawlResult, error) {
 	result := CrawlResult{
 		URL:           currentURL,
 		HeadingsCount: make(map[string]int),
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	crawlersMutex.Lock()
-	// Registering crawler for cancellation
 	c := colly.NewCollector(
 		colly.MaxDepth(maxDepth),
 		colly.AllowedDomains(extractDomain(currentURL)),
 	)
-	activeCancelFns[currentURL] = cancel
-	activeCrawlers[currentURL] = c
-	crawlersMutex.Unlock()
-
-	defer func() {
-		crawlersMutex.Lock()
-		delete(activeCrawlers, currentURL)
-		delete(activeCancelFns, currentURL)
-		crawlersMutex.Unlock()
-	}()
-
 	c.OnRequest(func(r *colly.Request) {
 		select {
 		case <-ctx.Done():
 			r.Abort()
 			return
 		default:
-			r.Ctx.Put("cancelCtx", ctx)
-			ws.WriteJSON(gin.H{"status": "processing", "message": fmt.Sprintf("Visiting %s", r.URL.String())})
+			ws.WriteJSON(gin.H{"status": "progress", "message": fmt.Sprintf("Visiting %s", r.URL.String())})
 		}
 	})
 
@@ -172,7 +176,9 @@ func crawl(currentURL string, maxDepth int, ws *websocket.Conn) (CrawlResult, er
 			result.BrokenLinks++
 		}
 	})
-
+	c.OnError(func(r *colly.Response, err error) {
+		ws.WriteJSON(gin.H{"status": "error", "message": fmt.Sprintf("Error visiting %s: %v", r.Request.URL, err)})
+	})
 	err := c.Visit(currentURL)
 	if err != nil {
 		if ctx.Err() != nil {

@@ -27,20 +27,28 @@ func WithUserId() gin.HandlerFunc {
 }
 
 func extractUserIDFromRequest(r *http.Request) (string, error) {
-
+	// 1. Check header first
 	if userID := r.Header.Get("X-User-ID"); userID != "" {
 		return userID, nil
 	}
 
 	authHeader := r.Header.Get("Authorization")
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		return "", fmt.Errorf("missing or invalid Authorization header")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		if userID, err := utils.ParseJWT(tokenStr); err == nil {
+			return userID, nil
+		}
 	}
-	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-	userID, err := utils.ParseJWT(tokenStr)
-	if err != nil {
-		return "", fmt.Errorf("invalid token")
+	// 2. Fallback: check for token in query string (for WebSocket)
+	queryToken := r.URL.Query().Get("token")
+	if queryToken != "" {
+		userID, err := utils.ParseJWT(queryToken)
+		if err != nil {
+			return "", fmt.Errorf("invalid token in query: %w", err)
+		}
+		return userID, nil
 	}
-	return userID, nil
+
+	return "", fmt.Errorf("missing authentication token")
 }

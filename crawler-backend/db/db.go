@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -99,7 +100,13 @@ func GetUserByUsername(username string) *models.User {
 
 func GetUrlsByUserId(userId string) ([]models.Url, error) {
 	db := GetDB()
-	query := "SELECT id, url, html_version, page_title, internal_links_count, external_links_count, broken_links_count, has_login_form, status, error_message FROM urls WHERE user_id = ?"
+	query := `
+  SELECT id, url, html_version, page_title, internal_links_count, external_links_count, broken_links_count, has_login_form
+  FROM urls
+  WHERE user_id = ?
+  ORDER BY created_at DESC
+`
+
 	rows, err := db.Query(query, userId)
 	if err != nil {
 		return nil, err
@@ -118,21 +125,44 @@ func GetUrlsByUserId(userId string) ([]models.Url, error) {
 	return urls, nil
 }
 
-func GetUrlByTitle(link string) *models.Url {
+func GetUrlByTitle(urlLink string) (*models.Url, error) {
 	db := GetDB()
-	query := "SELECT id, url, html_version, page_title, internal_links_count, external_links_count, broken_links_count, has_login_form, FROM urls WHERE page_title = ?"
-	row := db.QueryRow(query, link)
+
+	query := `
+        SELECT 
+            id, 
+            url, 
+            html_version, 
+            page_title, 
+            internal_links_count, 
+            external_links_count, 
+            broken_links_count, 
+            has_login_form 
+        FROM urls 
+        WHERE url = ?`
+
+	row := db.QueryRow(query, urlLink)
 
 	var url models.Url
-	err := row.Scan(&url.ID, &url.URL, &url.HTMLVersion, &url.Title, &url.InternalLinks, &url.ExternalLinks, &url.BrokenLinks, &url.HasLoginForm)
+	err := row.Scan(
+		&url.ID,
+		&url.URL,
+		&url.HTMLVersion,
+		&url.Title,
+		&url.InternalLinks,
+		&url.ExternalLinks,
+		&url.BrokenLinks,
+		&url.HasLoginForm,
+	)
+
 	if err != nil {
-		if err == sql.ErrNoRows {
-			fmt.Println("Url not found")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
 		}
-		return nil
+		return nil, fmt.Errorf("error querying URL by title: %w", err)
 	}
 
-	return &url
+	return &url, nil
 }
 
 func DeleteUrlByTitle(title string) error {
