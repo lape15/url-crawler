@@ -9,6 +9,7 @@ export interface CrawledURL {
   BrokenLinks: number;
   HasLoginForm: boolean;
   UserID: string;
+  Status?: string;
 }
 
 export interface CrawledURLsResponse {
@@ -19,3 +20,5 @@ export type CrawlActionState = {
   state: { message: string; status: string };
   url?: string;
 };
+
+export type CrawlStatus = CrawlActionState | undefined;

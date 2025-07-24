@@ -1,6 +1,7 @@
 import { LoginPage } from './pages/auth/login';
 import { RegisterPage } from './pages/auth/register';
 import { PostDashboard } from './pages/dashboard/dashboard';
+import { UrlPage } from './pages/url/url';
 
 export interface AppRoute {
   path: string;
@@ -16,5 +17,9 @@ export const routes: AppRoute[] = [
   {
     path: '/dashboard',
     element: isAuthenticated ? <PostDashboard /> : <LoginPage />,
+  },
+  {
+    path: '/url/:id',
+    element: isAuthenticated ? <UrlPage /> : <LoginPage />,
   },
 ];

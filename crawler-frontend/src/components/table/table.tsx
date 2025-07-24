@@ -1,15 +1,30 @@
+import { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './table.module.css';
 import type { Column } from '../../types/components';
+import { Row } from './row';
 
-interface TableProps<T extends { ID: number }> {
+interface TableProps<T extends { ID: number; URL: string }> {
   data: T[];
   columns: Column<T>[];
 }
 
-export function Table<T extends { ID: number }>({
+export function Table<T extends { ID: number; URL: string }>({
   data,
   columns,
 }: TableProps<T>) {
+  const navigate = useNavigate();
+  const navigateToUrlPage = useCallback(
+    (id: number, url: string) => {
+      navigate(`/url/${id}`, {
+        state: {
+          url,
+        },
+      });
+    },
+    [navigate],
+  );
+
   return (
     <div className={styles.tableWrapper}>
       <table className={styles.table}>
@@ -20,22 +35,17 @@ export function Table<T extends { ID: number }>({
                 {col.header}
               </th>
             ))}
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={row.ID} className={styles.tr}>
-              {columns.map((col) => {
-                const cellValue = row[col.key];
-                return (
-                  <td key={String(col.key)} className={styles.td}>
-                    {col.render
-                      ? col.render(cellValue, row)
-                      : String(cellValue ?? '')}
-                  </td>
-                );
-              })}
-            </tr>
+            <Row
+              key={row.ID}
+              row={row}
+              columns={columns}
+              action={() => navigateToUrlPage(row.ID, row.URL)}
+            />
           ))}
         </tbody>
       </table>

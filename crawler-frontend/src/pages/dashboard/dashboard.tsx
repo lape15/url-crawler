@@ -1,7 +1,7 @@
 import { useCrawledURLs } from '../../hooks/useCrawl';
 import { Table } from '../../components/table/table';
 import { extractColumnsFromData } from '../../utils/table';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import styles from './dashboard.module.css';
 import Input from '../../components/form/input';
 import { useCrawState } from '../../hooks/useCrawlState';
@@ -47,9 +47,9 @@ export const PostDashboard = () => {
       {status && (
         <div>
           <span className={styles.status}>{status.state.message}</span>
+          <ProgressBar />
         </div>
       )}
-      <ProgressBar />
       <Table data={data || []} columns={columns} />
     </div>
   );

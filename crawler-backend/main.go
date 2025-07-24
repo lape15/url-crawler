@@ -31,6 +31,8 @@ func main() {
 
 	api.POST("/urls", service.CrawlURL)
 	api.GET("/urls", service.GetCrawledUrls)
+	api.GET("/url", service.GetUrlDetails)
+	api.DELETE("/url", service.DeleteCrawled)
 	route.GET("/crawl", service.HandleCrawlWebSocket)
 
 	log.Println("Server running at http://localhost:8000")

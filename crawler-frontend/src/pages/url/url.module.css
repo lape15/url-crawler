@@ -1,0 +1,58 @@
+.urlArea {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+.urlHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+.urlActions {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+}
+.url {
+  display: flex;
+
+  width: 100%;
+  height: 100%;
+  gap: 1rem;
+  padding: 20px 30px;
+  color: #333;
+  justify-content: space-between;
+  align-items: center;
+}
+.urlInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+.urlChart {
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 30px 40px rgba(0, 0, 0, 0.1);
+ 
+}
+.urlInfoItem {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.urlInfoItem p {
+  font-weight: bold;
+}
+.urlInfoItem span {
+  font-weight: normal;
+  color: gray;
+}

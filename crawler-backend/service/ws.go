@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gocolly/colly"
 	"github.com/gorilla/websocket"
-	"github.com/lape15/sykell-task-root/utils"
 )
 
 var upgrader = websocket.Upgrader{
@@ -23,8 +24,44 @@ var (
 	wsConnections   = make(map[string]*websocket.Conn)
 	activeCrawlers  = make(map[string]*colly.Collector)
 	activeCancelFns = make(map[string]context.CancelFunc)
-	crawlersMutex   sync.Mutex
+	// crawlersMutex   sync.Mutex
+	crawlersMutex sync.RWMutex
 )
+
+func handleCancellation(conn *websocket.Conn, decodedUrl string) {
+	crawlersMutex.Lock()
+	defer crawlersMutex.Unlock()
+
+	if cancel, exists := activeCancelFns[decodedUrl]; exists {
+
+		cancel()
+
+		if collector, exists := activeCrawlers[decodedUrl]; exists {
+			done := make(chan struct{})
+			go func() {
+				collector.Wait()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+
+		conn.WriteJSON(gin.H{
+			"status":  "cancelled",
+			"message": "Crawl successfully cancelled",
+			"url":     decodedUrl,
+		})
+
+	} else {
+		conn.WriteJSON(gin.H{
+			"status":  "error",
+			"message": "No active crawl found for URL",
+		})
+	}
+}
 
 func HandleCrawlWebSocket(c *gin.Context) {
 
@@ -33,15 +70,20 @@ func HandleCrawlWebSocket(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
 		return
 	}
+	//_________________/--\ might not need this code  __________________/\
+	// userID, err := utils.ParseJWT(token)
+	// if err != nil {
+	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+	// 	return
+	// }
+	// fmt.Println("User ID:", userID)
 
-	userID, err := utils.ParseJWT(token)
+	encodedUrl := c.Query("url")
+	url, err := url.QueryUnescape(encodedUrl)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL encoding"})
 		return
 	}
-	fmt.Println("User ID:", userID)
-	url := c.Query("url")
-	fmt.Println("WebSocket connection for URL:", url)
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade failed:", err)
@@ -62,6 +104,11 @@ func HandleCrawlWebSocket(c *gin.Context) {
 			delete(wsConnections, url)
 		}
 		crawlersMutex.Unlock()
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "crawl completed"),
+			time.Now().Add(5*time.Second),
+		)
 		conn.Close()
 	}()
 
@@ -70,35 +117,23 @@ func HandleCrawlWebSocket(c *gin.Context) {
 			Action string `json:"action"`
 			URL    string `json:"url"`
 		}
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		if err := conn.ReadJSON(&msg); err != nil {
-			log.Println("WebSocket read error:", err)
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				log.Println("WebSocket read error:", err)
+			}
 			break
 		}
 
-		if msg.Action == "stop" && msg.URL != "" {
-			crawlersMutex.Lock()
-			if cancel, ok := activeCancelFns[msg.URL]; ok {
-				cancel()
-				conn.WriteJSON(map[string]string{"status": "stopped", "url": msg.URL})
-			} else {
-				conn.WriteJSON(map[string]string{"status": "not_found", "message": "No active crawl for URL"})
-			}
-			crawlersMutex.Unlock()
+		if msg.Action == "cancel" {
+			fmt.Println("Cancelling crawl for URL:", msg.Action)
+			handleCancellation(conn, msg.URL)
 		}
 	}
 }
 
-func WSConnectionForURL(url string) *websocket.Conn {
-	crawlersMutex.Lock()
-	defer crawlersMutex.Unlock()
-
-	conn := wsConnections[url]
-	if conn != nil {
-
-		if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-			delete(wsConnections, url)
-			return nil
-		}
-	}
-	return conn
+func WSConnectionForURL(rawUrl string) *websocket.Conn {
+	crawlersMutex.RLock()
+	defer crawlersMutex.RUnlock()
+	return wsConnections[rawUrl] // Assume URL is already decoded when stored
 }

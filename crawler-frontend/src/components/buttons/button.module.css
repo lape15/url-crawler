@@ -16,6 +16,7 @@
     font-weight: bold;
     transition: all 0.3s ease-in-out;
     /* min-width: 120px; */
+    cursor: pointer;
 }
 .button:hover{
     box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);

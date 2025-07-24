@@ -12,10 +12,10 @@
   width: 100%;
   background: linear-gradient(
     90deg,
-    #00aaff,
-    #00ffcc,
-    #00aaff,
-    #00ffcc
+    #067bb5,
+    #025242,
+    #045e8b,
+    #2b7163
   );
   background-size: 200% 100%;
   animation: progressBar 2s linear infinite;

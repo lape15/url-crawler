@@ -9,3 +9,8 @@ export const getCrawledURLs = async (): Promise<CrawledURL[]> => {
   const res = await API.get('/crawler/urls');
   return res.data.crawledUrls;
 };
+export const getUrl = async (url: string): Promise<CrawledURL> => {
+  const encoded = encodeURIComponent(url);
+  const res = await API.get(`/crawler/url?url=${encoded}`);
+  return res.data.url;
+};
