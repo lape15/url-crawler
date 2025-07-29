@@ -1,15 +1,39 @@
 import styles from './table.module.css';
 import type { Column } from '../../types/components';
+import { CheckBox } from '../form/checkbox/chexbox';
 
-interface RowProps<T extends { ID: number }> {
+interface RowProps<T extends { ID: number; URL: string }> {
   row: T;
   columns: Column<T>[];
-  action: () => void;
+  action?: {
+    selectAction: (params: T) => void;
+    navigateAction: (params: T) => void;
+  };
+  canDelete: boolean;
+  isSelected: boolean;
 }
-export const Row = <T extends { ID: number }>(props: RowProps<T>) => {
-  const { row, columns, action } = props;
+
+export const Row = <T extends { ID: number; URL: string }>(
+  props: RowProps<T>,
+) => {
+  const { row, columns, action, canDelete, isSelected } = props;
+
   return (
-    <tr key={row.ID} className={styles.tr} onClick={action}>
+    <tr
+      key={row.ID}
+      className={styles.tr}
+      onClick={() => action?.navigateAction(row)}
+    >
+      {canDelete && (
+        <td className={styles.td}>
+          <CheckBox
+            value={row.URL}
+            onChange={() => action?.selectAction(row)}
+            checked={isSelected}
+          />
+        </td>
+      )}
+
       {columns.map((col) => {
         const cellValue = row[col.key];
         return (
@@ -18,6 +42,7 @@ export const Row = <T extends { ID: number }>(props: RowProps<T>) => {
           </td>
         );
       })}
+
       <td>Done</td>
     </tr>
   );

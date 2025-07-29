@@ -174,3 +174,34 @@ func DeleteUrlByTitle(title string) error {
 	}
 	return nil
 }
+
+func DeleteUrlsByTitles(titles []string) error {
+	if len(titles) == 0 {
+		return nil
+	}
+	db := GetDB()
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("could not start transaction: %w", err)
+	}
+	stmt, err := tx.Prepare("DELETE FROM urls WHERE page_title = ?")
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("could not prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Execute deletions
+	for _, title := range titles {
+		if _, err := stmt.Exec(title); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to delete title %s: %w", title, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("transaction commit failed: %w", err)
+	}
+
+	return nil
+}

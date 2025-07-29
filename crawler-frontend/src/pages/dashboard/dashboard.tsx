@@ -1,12 +1,14 @@
+import { useCallback, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCrawledURLs } from '../../hooks/useCrawl';
 import { Table } from '../../components/table/table';
 import { extractColumnsFromData } from '../../utils/table';
-import { useMemo } from 'react';
 import styles from './dashboard.module.css';
 import Input from '../../components/form/input';
 import { useCrawState } from '../../hooks/useCrawlState';
 import Button from '../../components/buttons/button';
 import { ProgressBar } from '../../components/progress-bar/progress';
+import type { CrawledURL } from '../../types/url';
 
 export const PostDashboard = () => {
   const { data, isLoading, error } = useCrawledURLs();
@@ -17,10 +19,46 @@ export const PostDashboard = () => {
     isPending,
     status,
   } = useCrawState();
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState<Map<string, string>>(new Map());
 
   const columns = useMemo(() => {
     return extractColumnsFromData(data || []);
   }, [data]);
+
+  const navigateToUrlPage = useCallback(
+    (params: CrawledURL) => {
+      const { ID: id, URL: url } = params;
+      navigate(`/url/${id}`, {
+        state: {
+          url,
+        },
+      });
+    },
+    [navigate],
+  );
+
+  const handleSelectedMap = useCallback(
+    (payload: CrawledURL) => {
+      const { URL: id } = payload;
+      const temp = selected;
+      if (temp.has(id)) {
+        temp.delete(id);
+      } else {
+        temp.set(id, id);
+      }
+      setSelected(temp);
+    },
+    [selected],
+  );
+
+  const urlActions = useMemo(
+    () => ({
+      navigateAction: navigateToUrlPage,
+      selectAction: handleSelectedMap,
+    }),
+    [navigateToUrlPage, handleSelectedMap],
+  );
 
   if (isLoading) return <p>Loading...</p>;
   if (error) return <p>Failed to load data.</p>;
@@ -50,7 +88,13 @@ export const PostDashboard = () => {
           <ProgressBar />
         </div>
       )}
-      <Table data={data || []} columns={columns} />
+      <Table
+        data={data || []}
+        columns={columns}
+        canDelete={true}
+        action={urlActions}
+        selected={selected}
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
@@ -55,4 +56,23 @@ func DeleteCrawled(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"message": "URL deleted successfully"})
+}
+
+type DeleteMultipleCrawledInput struct {
+	Urls []string `json:"urls"`
+}
+
+func DeleteMultipleCrawled(c *gin.Context) {
+	var input DeleteMultipleCrawledInput
+	if err := c.BindJSON(&input); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if err := db.DeleteUrlsByTitles(input.Urls); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": fmt.Sprintf("%d URLs deleted successfully", len(input.Urls))})
 }

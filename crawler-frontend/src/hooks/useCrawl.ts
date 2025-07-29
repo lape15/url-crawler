@@ -1,5 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { crawlUrl, getCrawledURLs } from '../services/crawl';
+import {
+  crawlUrl,
+  deleteMultipleUrls,
+  deleteUrl,
+  getCrawledURLs,
+} from '../services/crawl';
 
 export const useCrawl = () => {
   return useMutation({
@@ -11,5 +16,17 @@ export const useCrawledURLs = () => {
   return useQuery({
     queryKey: ['crawledURLs'],
     queryFn: getCrawledURLs,
+  });
+};
+
+export const useDeleteUrl = () => {
+  return useMutation({
+    mutationFn: (url: string) => deleteUrl(url),
+  });
+};
+
+export const useDeleteMultipleUrls = () => {
+  return useMutation({
+    mutationFn: (urls: string[]) => deleteMultipleUrls(urls),
   });
 };

@@ -6,6 +6,7 @@ export function extractColumnsFromData<T>(data: T[]): Column<T>[] {
 
   const sample = data[0];
   const keys = Object.keys(sample as object) as (keyof T)[];
+
   const prunedkeys = keys.filter((key) => !excluded.includes(key as string));
 
   return prunedkeys.map((key) => {
@@ -20,7 +21,13 @@ export function extractColumnsFromData<T>(data: T[]): Column<T>[] {
       key,
       header: readableHeader,
       ...(isBoolean && {
-        render: (val: boolean) => (val ? 'Yes' : 'No'),
+        // render: (val: boolean) => (val ? 'Yes' : 'No'),
+        render: (val: T[keyof T]) => {
+          if (typeof val === 'boolean') {
+            return val ? 'Yes' : 'No';
+          }
+          return String(val);
+        },
       }),
     };
   });

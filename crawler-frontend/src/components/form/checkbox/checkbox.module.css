@@ -1,0 +1,25 @@
+.checkBox{
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+}
+.checkBox input{
+    width: 0px;
+    height: 0px;
+    visibility: hidden;
+}
+
+.checkItem{
+    width: 16px;
+    height: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.checkBox input:checked + .checkItem{
+    background-color: #00aaff;
+    color: #fff;
+}
