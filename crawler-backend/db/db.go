@@ -167,7 +167,7 @@ func GetUrlByTitle(urlLink string) (*models.Url, error) {
 
 func DeleteUrlByTitle(title string) error {
 	db := GetDB()
-	query := "DELETE FROM urls WHERE page_title = ?"
+	query := "DELETE FROM urls WHERE url = ?"
 	_, err := db.Exec(query, title)
 	if err != nil {
 		return err
@@ -184,7 +184,7 @@ func DeleteUrlsByTitles(titles []string) error {
 	if err != nil {
 		return fmt.Errorf("could not start transaction: %w", err)
 	}
-	stmt, err := tx.Prepare("DELETE FROM urls WHERE page_title = ?")
+	stmt, err := tx.Prepare("DELETE FROM urls WHERE url = ?")
 	if err != nil {
 		tx.Rollback()
 		return fmt.Errorf("could not prepare statement: %w", err)
@@ -193,10 +193,14 @@ func DeleteUrlsByTitles(titles []string) error {
 
 	// Execute deletions
 	for _, title := range titles {
-		if _, err := stmt.Exec(title); err != nil {
+		res, err := stmt.Exec(title)
+		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to delete title %s: %w", title, err)
 		}
+		count, _ := res.RowsAffected()
+		fmt.Println("Rows affected:", count)
+
 	}
 
 	if err := tx.Commit(); err != nil {

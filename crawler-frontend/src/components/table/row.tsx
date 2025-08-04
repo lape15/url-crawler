@@ -1,12 +1,13 @@
 import styles from './table.module.css';
 import type { Column } from '../../types/components';
-import { CheckBox } from '../form/checkbox/chexbox';
+import { CheckBox } from '../form/checkbox/checkbox';
+import Button from '../buttons/button';
 
 interface RowProps<T extends { ID: number; URL: string }> {
   row: T;
   columns: Column<T>[];
   action?: {
-    selectAction: (params: T) => void;
+    selectAction: (params: T, e?: React.ChangeEvent<HTMLInputElement>) => void;
     navigateAction: (params: T) => void;
   };
   canDelete: boolean;
@@ -19,16 +20,12 @@ export const Row = <T extends { ID: number; URL: string }>(
   const { row, columns, action, canDelete, isSelected } = props;
 
   return (
-    <tr
-      key={row.ID}
-      className={styles.tr}
-      onClick={() => action?.navigateAction(row)}
-    >
+    <tr key={row.ID} className={styles.tr}>
       {canDelete && (
         <td className={styles.td}>
           <CheckBox
             value={row.URL}
-            onChange={() => action?.selectAction(row)}
+            onChange={(e) => action?.selectAction(row, e)}
             checked={isSelected}
           />
         </td>
@@ -43,7 +40,13 @@ export const Row = <T extends { ID: number; URL: string }>(
         );
       })}
 
-      <td>Done</td>
+      <td>
+        <Button
+          title="View"
+          type="button"
+          onClick={() => action?.navigateAction(row)}
+        />
+      </td>
     </tr>
   );
 };

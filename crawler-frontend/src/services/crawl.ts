@@ -24,6 +24,6 @@ export const deleteUrl = async (url: string): Promise<CrawledURL> => {
 export const deleteMultipleUrls = async (
   urls: string[],
 ): Promise<CrawledURL> => {
-  const res = await API.delete('/crawler/urls', { data: { urls } });
+  const res = await API.post('/crawler/urls/delete', { urls });
   return res.data.message;
 };

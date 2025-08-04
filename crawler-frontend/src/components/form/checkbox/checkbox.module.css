@@ -12,7 +12,7 @@
 .checkItem{
     width: 16px;
     height: 16px;
-    border: 1px solid #ccc;
+    border: 1px solid #333;
     border-radius: 4px;
     display: flex;
     align-items: center;

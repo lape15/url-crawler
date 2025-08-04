@@ -1,5 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import { useCrawledURLs } from '../../hooks/useCrawl';
 import { Table } from '../../components/table/table';
 import { extractColumnsFromData } from '../../utils/table';
@@ -8,7 +7,6 @@ import Input from '../../components/form/input';
 import { useCrawState } from '../../hooks/useCrawlState';
 import Button from '../../components/buttons/button';
 import { ProgressBar } from '../../components/progress-bar/progress';
-import type { CrawledURL } from '../../types/url';
 
 export const PostDashboard = () => {
   const { data, isLoading, error } = useCrawledURLs();
@@ -18,46 +16,25 @@ export const PostDashboard = () => {
     handleCrawlSubmit,
     isPending,
     status,
-  } = useCrawState();
-  const navigate = useNavigate();
-  const [selected, setSelected] = useState<Map<string, string>>(new Map());
+    handleSelectedMap,
+    handleSelectAll,
+    navigateToUrlPage,
+    selected,
+    deleteSelectedUrls,
+  } = useCrawState(data);
 
   const columns = useMemo(() => {
     return extractColumnsFromData(data || []);
   }, [data]);
 
-  const navigateToUrlPage = useCallback(
-    (params: CrawledURL) => {
-      const { ID: id, URL: url } = params;
-      navigate(`/url/${id}`, {
-        state: {
-          url,
-        },
-      });
-    },
-    [navigate],
-  );
-
-  const handleSelectedMap = useCallback(
-    (payload: CrawledURL) => {
-      const { URL: id } = payload;
-      const temp = selected;
-      if (temp.has(id)) {
-        temp.delete(id);
-      } else {
-        temp.set(id, id);
-      }
-      setSelected(temp);
-    },
-    [selected],
-  );
-
   const urlActions = useMemo(
     () => ({
       navigateAction: navigateToUrlPage,
       selectAction: handleSelectedMap,
+      handleSelectAll,
+      deleteSelectedUrls,
     }),
-    [navigateToUrlPage, handleSelectedMap],
+    [navigateToUrlPage, handleSelectedMap, handleSelectAll, deleteSelectedUrls],
   );
 
   if (isLoading) return <p>Loading...</p>;

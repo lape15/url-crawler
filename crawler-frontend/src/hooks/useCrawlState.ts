@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
-import { useCrawl } from './useCrawl';
-import type { CrawlActionState } from '../types/url';
+import React, { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { useNavigate } from 'react-router-dom';
+import { useCrawl, useDeleteUrl, useDeleteMultipleUrls } from './useCrawl';
+import type { CrawlActionState, CrawledURL } from '../types/url';
 import { useCrawlWebSocket } from './useCrawlWebSocket';
 
-export const useCrawState = () => {
+export const useCrawState = (data: CrawledURL[] | undefined) => {
   const [crawlUrl, setCrawlUrl] = useState('');
   const [status, setStatus] = useState<CrawlActionState>();
+  const [selected, setSelected] = useState<Map<string, string>>(new Map());
 
   const { mutate, isPending } = useCrawl();
+  const { mutate: deleteMutate, isPending: isPendingDelete } = useDeleteUrl();
+  const { mutate: deleteMutateMultiple, isPending: isPendingDeleteMultiple } =
+    useDeleteMultipleUrls();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const crawlUrlMutation = (url: string) => {
     mutate(url || crawlUrl, {
       onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['crawledURLs'] });
         setCrawlUrl('');
       },
     });
@@ -36,6 +46,60 @@ export const useCrawState = () => {
     const stringArg = typeof url === 'string' ? url : crawlUrl;
     start(stringArg);
   };
+  const navigateToUrlPage = useCallback(
+    (params: CrawledURL) => {
+      const { ID: id, URL: url } = params;
+      navigate(`/url/${id}`, {
+        state: {
+          url,
+        },
+      });
+    },
+    [navigate],
+  );
+
+  const handleSelectedMap = useCallback(
+    (payload: CrawledURL, e?: React.ChangeEvent<HTMLInputElement>) => {
+      const { URL: id } = payload;
+
+      setSelected((prev) => {
+        const next = new Map(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.set(id, e?.target.value ?? id);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleSelectAll = useCallback(() => {
+    setSelected((prev) => {
+      const total = data?.length ?? 0;
+      if (!data || total === 0) return new Map();
+
+      const allSelected = prev.size === total;
+
+      return allSelected
+        ? new Map()
+        : new Map(data.map(({ URL }) => [URL, URL]));
+    });
+  }, [data]);
+
+  const deleteSelectedUrls = useCallback(() => {
+    const urls = Array.from(selected.values());
+    if (urls.length > 0) {
+      deleteMutateMultiple(urls, {
+        onSuccess: () => {
+          setSelected(new Map());
+          queryClient.invalidateQueries({ queryKey: ['crawledURLs'] });
+        },
+      });
+    }
+  }, [selected, deleteMutateMultiple, queryClient]);
+
   return {
     crawlUrl,
     handleCrawlUrlState,
@@ -44,5 +108,12 @@ export const useCrawState = () => {
     cancelCrawl,
     status,
     isConnected,
+    navigateToUrlPage,
+    handleSelectedMap,
+    handleSelectAll,
+    deleteSelectedUrls,
+    selected,
+    isPendingDelete,
+    isPendingDeleteMultiple,
   };
 };

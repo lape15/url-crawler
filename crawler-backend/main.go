@@ -19,7 +19,7 @@ func main() {
 	route := gin.Default()
 	route.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "DELETE"},
 		AllowHeaders:     []string{"Authorization", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
@@ -33,7 +33,7 @@ func main() {
 	api.GET("/urls", service.GetCrawledUrls)
 	api.GET("/url", service.GetUrlDetails)
 	api.DELETE("/url", service.DeleteCrawled)
-	api.DELETE("/urls", service.DeleteMultipleCrawled)
+	api.POST("/urls/delete", service.DeleteMultipleCrawled)
 	route.GET("/crawl", service.HandleCrawlWebSocket)
 
 	log.Println("Server running at http://localhost:8000")

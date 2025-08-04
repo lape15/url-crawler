@@ -64,10 +64,12 @@ type DeleteMultipleCrawledInput struct {
 
 func DeleteMultipleCrawled(c *gin.Context) {
 	var input DeleteMultipleCrawledInput
+
 	if err := c.BindJSON(&input); err != nil {
 		c.JSON(400, gin.H{"error": "Invalid request"})
 		return
 	}
+	fmt.Println(input)
 
 	if err := db.DeleteUrlsByTitles(input.Urls); err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})

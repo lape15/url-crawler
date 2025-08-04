@@ -1,7 +1,8 @@
 import styles from './table.module.css';
 import type { Column } from '../../types/components';
 import { Row } from './row';
-import { CheckBox } from '../form/checkbox/chexbox';
+import { CheckBox } from '../form/checkbox/checkbox';
+import Button from '../buttons/button';
 
 interface TableProps<T extends { ID: number; URL: string }> {
   data: T[];
@@ -10,6 +11,8 @@ interface TableProps<T extends { ID: number; URL: string }> {
   action?: {
     selectAction: (params: T) => void;
     navigateAction: (params: T) => void;
+    handleSelectAll: (e?: React.ChangeEvent<HTMLInputElement>) => void;
+    deleteSelectedUrls?: () => void;
   };
   selected: Map<string, string>;
 }
@@ -21,15 +24,26 @@ export function Table<T extends { ID: number; URL: string }>({
   action,
   selected,
 }: TableProps<T>) {
-  console.log('selected', selected);
   return (
     <div className={styles.tableWrapper}>
+      {selected.size > 0 && (
+        <Button
+          title="Delete"
+          type="button"
+          disabled={selected.size === 0}
+          onClick={action?.deleteSelectedUrls}
+        />
+      )}
       <table className={styles.table}>
         <thead className={styles.thead}>
           <tr>
             {canDelete && (
               <th>
-                <CheckBox />
+                <CheckBox
+                  onChange={(e) => action?.handleSelectAll(e)}
+                  checked={selected.size > 0}
+                  value=""
+                />
               </th>
             )}
 
