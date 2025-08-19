@@ -12,6 +12,10 @@ export interface CrawledURL {
   Status?: string;
 }
 
+export type TableCrawledURL = Pick<
+  CrawledURL,
+  'ID' | 'URL' | 'HTMLVersion' | 'HasLoginForm' | 'Status'
+>;
 export interface CrawledURLsResponse {
   crawledUrls: CrawledURL[];
 }
@@ -22,3 +26,5 @@ export type CrawlActionState = {
 };
 
 export type CrawlStatus = CrawlActionState | undefined;
+
+export type maybe = string | number | boolean | undefined;

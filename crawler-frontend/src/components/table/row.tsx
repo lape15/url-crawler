@@ -33,9 +33,12 @@ export const Row = <T extends { ID: number; URL: string }>(
 
       {columns.map((col) => {
         const cellValue = row[col.key];
+
         return (
           <td key={String(col.key)} className={styles.td}>
-            {col.render ? col.render(cellValue, row) : String(cellValue ?? '')}
+            {col.render
+              ? col.render(cellValue, row)
+              : String(cellValue ? cellValue : '-')}
           </td>
         );
       })}

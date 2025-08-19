@@ -53,7 +53,7 @@ export function Table<T extends { ID: number; URL: string }>({
               </th>
             ))}
 
-            <th>Status</th>
+            {/* <th>Status</th> */}
           </tr>
         </thead>
 

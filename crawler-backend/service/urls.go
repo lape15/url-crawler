@@ -63,10 +63,11 @@ func handleSuccessfulCrawl(result CrawlResult, url string, ws *websocket.Conn, c
 	})
 }
 
-func CrawlURL(c *gin.Context) {
+func CrawlURL(c *gin.Context, urls ...string) {
 	crawlerString := CrawlerInput{}
-
-	if c.BindJSON(&crawlerString) != nil {
+	if len(urls) > 0 {
+		crawlerString.URL = urls[0]
+	} else if c.BindJSON(&crawlerString) != nil {
 		c.JSON(400, gin.H{
 			"error": "Invalid request",
 		})

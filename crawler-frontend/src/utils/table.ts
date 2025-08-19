@@ -4,8 +4,8 @@ const excluded = ['ID', 'UserID'];
 export function extractColumnsFromData<T>(data: T[]): Column<T>[] {
   if (!data || data.length === 0) return [];
 
-  const sample = data[0];
-  const keys = Object.keys(sample as object) as (keyof T)[];
+  const header = data[0];
+  const keys = Object.keys(header as object) as (keyof T)[];
 
   const prunedkeys = keys.filter((key) => !excluded.includes(key as string));
 
@@ -15,11 +15,11 @@ export function extractColumnsFromData<T>(data: T[]): Column<T>[] {
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
-    const isBoolean = typeof sample[key] === 'boolean';
+    const isBoolean = typeof header[key] === 'boolean';
 
     return {
       key,
-      header: readableHeader,
+      header: readableHeader || '-',
       ...(isBoolean && {
         // render: (val: boolean) => (val ? 'Yes' : 'No'),
         render: (val: T[keyof T]) => {

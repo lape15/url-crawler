@@ -7,6 +7,7 @@ import Input from '../../components/form/input';
 import { useCrawState } from '../../hooks/useCrawlState';
 import Button from '../../components/buttons/button';
 import { ProgressBar } from '../../components/progress-bar/progress';
+import { Pagination } from '../../components/pagination/pagination';
 
 export const PostDashboard = () => {
   const { data, isLoading, error } = useCrawledURLs();
@@ -21,11 +22,15 @@ export const PostDashboard = () => {
     navigateToUrlPage,
     selected,
     deleteSelectedUrls,
+    currentPage,
+    totalPages,
+    onPageChange,
+    visibleItems,
   } = useCrawState(data);
 
   const columns = useMemo(() => {
-    return extractColumnsFromData(data || []);
-  }, [data]);
+    return extractColumnsFromData(visibleItems || []);
+  }, [visibleItems]);
 
   const urlActions = useMemo(
     () => ({
@@ -66,11 +71,16 @@ export const PostDashboard = () => {
         </div>
       )}
       <Table
-        data={data || []}
+        data={visibleItems || []}
         columns={columns}
         canDelete={true}
         action={urlActions}
         selected={selected}
+      />
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={onPageChange}
       />
     </div>
   );

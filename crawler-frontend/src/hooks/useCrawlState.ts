@@ -3,13 +3,39 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { useNavigate } from 'react-router-dom';
 import { useCrawl, useDeleteUrl, useDeleteMultipleUrls } from './useCrawl';
-import type { CrawlActionState, CrawledURL } from '../types/url';
+import type { CrawlActionState, TableCrawledURL } from '../types/url';
 import { useCrawlWebSocket } from './useCrawlWebSocket';
+import { usePaginationState } from './usePagination';
 
-export const useCrawState = (data: CrawledURL[] | undefined) => {
+const validArr: (keyof TableCrawledURL)[] = [
+  'ID',
+  'URL',
+  'HTMLVersion',
+  'HasLoginForm',
+  'Status',
+];
+
+const extractValidData = (data: TableCrawledURL[]) => {
+  if (!data) return [];
+
+  return data.map((item) =>
+    validArr.reduce((acc, key) => {
+      acc[key] = key === 'Status' ? 'Done' : item[key];
+      return acc;
+    }, {} as TableCrawledURL),
+  );
+};
+export const useCrawState = (data?: TableCrawledURL[] | undefined) => {
   const [crawlUrl, setCrawlUrl] = useState('');
   const [status, setStatus] = useState<CrawlActionState>();
   const [selected, setSelected] = useState<Map<string, string>>(new Map());
+  const {
+    visibleItems,
+    currentPage,
+    totalPages,
+    onPageChange,
+    handlePerPageChange,
+  } = usePaginationState(extractValidData(data || []));
 
   const { mutate, isPending } = useCrawl();
   const { mutate: deleteMutate, isPending: isPendingDelete } = useDeleteUrl();
@@ -47,7 +73,7 @@ export const useCrawState = (data: CrawledURL[] | undefined) => {
     start(stringArg);
   };
   const navigateToUrlPage = useCallback(
-    (params: CrawledURL) => {
+    (params: TableCrawledURL) => {
       const { ID: id, URL: url } = params;
       navigate(`/url/${id}`, {
         state: {
@@ -59,7 +85,7 @@ export const useCrawState = (data: CrawledURL[] | undefined) => {
   );
 
   const handleSelectedMap = useCallback(
-    (payload: CrawledURL, e?: React.ChangeEvent<HTMLInputElement>) => {
+    (payload: TableCrawledURL, e?: React.ChangeEvent<HTMLInputElement>) => {
       const { URL: id } = payload;
 
       setSelected((prev) => {
@@ -115,5 +141,11 @@ export const useCrawState = (data: CrawledURL[] | undefined) => {
     selected,
     isPendingDelete,
     isPendingDeleteMultiple,
+    visibleItems,
+    currentPage,
+    totalPages,
+    onPageChange,
+    handlePerPageChange,
+    deleteMutate,
   };
 };
