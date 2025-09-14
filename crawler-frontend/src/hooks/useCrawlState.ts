@@ -42,6 +42,7 @@ export const useCrawState = (data?: TableCrawledURL[] | undefined) => {
   const { mutate: deleteMutateMultiple, isPending: isPendingDeleteMultiple } =
     useDeleteMultipleUrls();
   const navigate = useNavigate();
+
   const queryClient = useQueryClient();
 
   const crawlUrlMutation = (url: string) => {
@@ -72,6 +73,7 @@ export const useCrawState = (data?: TableCrawledURL[] | undefined) => {
     const stringArg = typeof url === 'string' ? url : crawlUrl;
     start(stringArg);
   };
+
   const navigateToUrlPage = useCallback(
     (params: TableCrawledURL) => {
       const { ID: id, URL: url } = params;

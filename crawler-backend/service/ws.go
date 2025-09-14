@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -63,47 +62,128 @@ func handleCancellation(conn *websocket.Conn, decodedUrl string) {
 	}
 }
 
-func HandleCrawlWebSocket(c *gin.Context) {
+// func HandleCrawlWebSocket(c *gin.Context) {
 
+// 	token := c.Query("token")
+// 	if token == "" {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+// 		return
+// 	}
+// 	//_________________/--\ might not need this code  __________________/\
+// 	// userID, err := utils.ParseJWT(token)
+// 	// if err != nil {
+// 	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+// 	// 	return
+// 	// }
+// 	// fmt.Println("User ID:", userID)
+
+// 	// encodedUrl := c.Query("url")
+// 	// url, err := url.QueryUnescape(encodedUrl)
+// 	// if err != nil {
+// 	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL encoding"})
+// 	// 	return
+// 	// }
+
+// 	encodedUrl := c.Query("url") // optional
+// 	var crawlKey string
+// 	if encodedUrl != "" {
+// 		decoded, err := url.QueryUnescape(encodedUrl)
+// 		if err != nil {
+// 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL encoding"})
+// 			return
+// 		}
+// 		crawlKey = decoded // single-URL mode → keyed by URL
+// 	} else {
+// 		crawlKey = token // bulk mode → keyed by session token
+// 	}
+// 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+// 	if err != nil {
+// 		log.Println("WebSocket upgrade failed:", err)
+// 		return
+// 	}
+// 	crawlersMutex.Lock()
+// 	if existingConn, ok := wsConnections[crawlKey]; ok {
+// 		existingConn.Close() // Close old connection
+// 	}
+// 	wsConnections[crawlKey] = conn
+// 	crawlersMutex.Unlock()
+
+// 	// Handle connection lifetime
+// 	defer func() {
+// 		crawlersMutex.Lock()
+
+// 		if wsConnections[crawlKey] == conn {
+// 			delete(wsConnections, crawlKey)
+// 		}
+// 		crawlersMutex.Unlock()
+// 		conn.WriteControl(
+// 			websocket.CloseMessage,
+// 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "crawl completed"),
+// 			time.Now().Add(5*time.Second),
+// 		)
+// 		conn.Close()
+// 	}()
+
+// 	for {
+// 		var msg struct {
+// 			Action string `json:"action"`
+// 			URL    string `json:"url"`
+// 		}
+// 		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+// 		if err := conn.ReadJSON(&msg); err != nil {
+// 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+// 				log.Println("WebSocket read error:", err)
+// 			}
+// 			break
+// 		}
+
+// 		if msg.Action == "cancel" {
+// 			fmt.Println("Cancelling crawl for URL:", msg.Action)
+// 			handleCancellation(conn, msg.URL)
+// 		}
+// 	}
+// }
+
+func HandleCrawlWebSocket(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
 		return
 	}
-	//_________________/--\ might not need this code  __________________/\
-	// userID, err := utils.ParseJWT(token)
-	// if err != nil {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-	// 	return
-	// }
-	// fmt.Println("User ID:", userID)
 
 	encodedUrl := c.Query("url")
-	url, err := url.QueryUnescape(encodedUrl)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL encoding"})
-		return
+	var crawlKey string
+	if encodedUrl != "" {
+		decoded, err := url.QueryUnescape(encodedUrl)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL encoding"})
+			return
+		}
+		crawlKey = decoded
+	} else {
+		crawlKey = token
 	}
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade failed:", err)
 		return
 	}
+
 	crawlersMutex.Lock()
-	if existingConn, ok := wsConnections[url]; ok {
-		existingConn.Close() // Close old connection
+	if existingConn, ok := wsConnections[crawlKey]; ok {
+		existingConn.Close()
 	}
-	wsConnections[url] = conn
+	wsConnections[crawlKey] = conn
 	crawlersMutex.Unlock()
 
-	// Handle connection lifetime
 	defer func() {
 		crawlersMutex.Lock()
-
-		if wsConnections[url] == conn {
-			delete(wsConnections, url)
+		if wsConnections[crawlKey] == conn {
+			delete(wsConnections, crawlKey)
 		}
 		crawlersMutex.Unlock()
+
 		conn.WriteControl(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "crawl completed"),
@@ -117,6 +197,7 @@ func HandleCrawlWebSocket(c *gin.Context) {
 			Action string `json:"action"`
 			URL    string `json:"url"`
 		}
+
 		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		if err := conn.ReadJSON(&msg); err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
@@ -126,7 +207,7 @@ func HandleCrawlWebSocket(c *gin.Context) {
 		}
 
 		if msg.Action == "cancel" {
-			fmt.Println("Cancelling crawl for URL:", msg.Action)
+			log.Println("Cancelling crawl for URL:", msg.URL)
 			handleCancellation(conn, msg.URL)
 		}
 	}

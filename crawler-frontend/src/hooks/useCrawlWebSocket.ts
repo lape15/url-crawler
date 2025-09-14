@@ -11,8 +11,10 @@ interface UseCrawlWebSocketOptions {
   isCrawling?: boolean;
 }
 
-const returnUrl = (url: string) =>
-  `${uri}${encodeURIComponent(url)}&token=${token}`;
+const returnUrl = (url: string, isBulkCrawling?: boolean) =>
+  isBulkCrawling
+    ? `${uri}token=${token}`
+    : `${uri}${encodeURIComponent(url)}&token=${token}`;
 
 export function useCrawlWebSocket({
   onStatusUpdate,
@@ -38,12 +40,15 @@ export function useCrawlWebSocket({
   }, [closeConnection]);
 
   const start = useCallback(
-    (crawlUrl: string) => {
-      if (!crawlUrl || !token) return;
+    (crawlUrl: string, isBulkCrawling?: boolean) => {
+      if (!isBulkCrawling && !crawlUrl) {
+        return;
+      }
+      if (!token) return;
 
-      closeConnection(); // Clean up any existing connection
+      closeConnection();
 
-      const ws = new WebSocket(returnUrl(crawlUrl));
+      const ws = new WebSocket(returnUrl(crawlUrl, isBulkCrawling));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -108,7 +113,7 @@ export function useCrawlWebSocket({
     [onStatusUpdate, onMutate, closeConnection],
   );
 
-  const stop = useCallback(async (url: string) => {
+  const stop = useCallback(async (url?: string, bulkUrls?: string[]) => {
     const ws = wsRef.current;
 
     if (!ws) {
@@ -129,44 +134,59 @@ export function useCrawlWebSocket({
           ) {
             clearInterval(waitForOpen);
             console.error('WebSocket closed before connection was established');
-            resolve(); // or reject() if you want to handle it differently
+            resolve();
           }
         }, 50);
       });
     }
-    console.log('CANCELLLLL');
+
     return new Promise<void>((resolve) => {
-      const sendCancelMessage = () => {
-        try {
-          ws.send(
-            JSON.stringify({
-              action: 'cancel',
-              url: encodeURIComponent(url),
-            }),
-          );
+      const pending = new Set<string>();
 
-          const handleMessage = (event: MessageEvent) => {
-            const message = JSON.parse(event.data);
-            if (message.status === 'cancelled') {
-              ws.removeEventListener('message', handleMessage);
-              resolve();
-            }
-          };
+      const handleMessage = (event: MessageEvent) => {
+        const message = JSON.parse(event.data);
 
-          ws.addEventListener('message', handleMessage);
-
-          // Fallback timeout
-          setTimeout(() => {
+        if (message.status === 'cancelled' && message.url) {
+          pending.delete(decodeURIComponent(message.url));
+          if (pending.size === 0) {
             ws.removeEventListener('message', handleMessage);
             resolve();
-          }, 3000);
-        } catch (error) {
-          console.error('Error sending cancel message:', error);
-          resolve();
+          }
         }
       };
 
-      sendCancelMessage();
+      ws.addEventListener('message', handleMessage);
+
+      const sendCancelMessage = (targetUrl: string) => {
+        try {
+          pending.add(targetUrl);
+          ws.send(
+            JSON.stringify({
+              action: 'cancel',
+              url: encodeURIComponent(targetUrl),
+            }),
+          );
+        } catch (error) {
+          console.error('Error sending cancel message:', error);
+          pending.delete(targetUrl);
+        }
+      };
+
+      if (url) {
+        sendCancelMessage(url);
+      }
+
+      if (bulkUrls) {
+        bulkUrls.forEach((u) => sendCancelMessage(u));
+      }
+
+      // fallback timeout for all
+      setTimeout(() => {
+        if (pending.size > 0) {
+          ws.removeEventListener('message', handleMessage);
+          resolve();
+        }
+      }, 3000);
     });
   }, []);
 

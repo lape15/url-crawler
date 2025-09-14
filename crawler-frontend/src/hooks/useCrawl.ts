@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
+  bulkCrawl,
   crawlUrl,
   deleteMultipleUrls,
   deleteUrl,
@@ -28,5 +29,11 @@ export const useDeleteUrl = () => {
 export const useDeleteMultipleUrls = () => {
   return useMutation({
     mutationFn: (urls: string[]) => deleteMultipleUrls(urls),
+  });
+};
+
+export const useBulkCrawl = () => {
+  return useMutation({
+    mutationFn: (urls: string[]) => bulkCrawl(urls),
   });
 };
