@@ -1,8 +1,11 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import type { CrawlActionState } from '../types/url';
+import { buildWsUrl } from '../utils/ws';
 
 const token = localStorage.getItem('token');
-const uri = 'ws://localhost:8000/crawl?url=';
+
+// const singleBase = `${HOST}/crawl?url=`;
+// const bulkBase = `${HOST}/crawl?`;
 // type CrawlStatus = CrawlActionState | undefined;
 
 interface UseCrawlWebSocketOptions {
@@ -11,10 +14,10 @@ interface UseCrawlWebSocketOptions {
   isCrawling?: boolean;
 }
 
-const returnUrl = (url: string, isBulkCrawling?: boolean) =>
-  isBulkCrawling
-    ? `${uri}token=${token}`
-    : `${uri}${encodeURIComponent(url)}&token=${token}`;
+// const returnUrl = (url: string, isBulkCrawling?: boolean) =>
+//   isBulkCrawling
+//     ? `${bulkBase}token=${token}`
+//     : `${singleBase}${encodeURIComponent(url)}&token=${token}`;
 
 export function useCrawlWebSocket({
   onStatusUpdate,
@@ -48,7 +51,7 @@ export function useCrawlWebSocket({
 
       closeConnection();
 
-      const ws = new WebSocket(returnUrl(crawlUrl, isBulkCrawling));
+      const ws = new WebSocket(buildWsUrl(crawlUrl, isBulkCrawling));
       wsRef.current = ws;
 
       ws.onopen = () => {

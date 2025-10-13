@@ -2,6 +2,9 @@
   overflow-x: auto;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .table {
@@ -35,4 +38,28 @@
 
 .td {
   padding: 0.5rem 1rem;
+}
+
+.ellipsis {
+  overflow: hidden;             
+  text-overflow: ellipsis;      
+  white-space: nowrap;          
+  max-width: 200px;
+}
+
+.selectedView{
+  visibility: visible ! important;
+  opacity: 1 ! important;
+  transition: all 0.3s ease-in-out;
+}
+
+
+.actions{
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.3s ease-in-out;
 }

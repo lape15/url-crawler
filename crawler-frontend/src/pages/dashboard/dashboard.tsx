@@ -1,49 +1,28 @@
-import { useMemo } from 'react';
-import { useCrawledURLs } from '../../hooks/useCrawl';
-import { Table } from '../../components/table/table';
-import { extractColumnsFromData } from '../../utils/table';
 import styles from './dashboard.module.css';
 import Input from '../../components/form/input';
 import { useCrawState } from '../../hooks/useCrawlState';
 import Button from '../../components/buttons/button';
 import { ProgressBar } from '../../components/progress-bar/progress';
-import { Pagination } from '../../components/pagination/pagination';
+import { AllUrls } from '../url/all_urls';
+import { useCrawlerStore } from '../../store';
 
 export const PostDashboard = () => {
-  const { data, isLoading, error } = useCrawledURLs();
   const {
-    crawlUrl,
     handleCrawlUrlState,
     handleCrawlSubmit,
-    isPending,
+
     status,
-    handleSelectedMap,
-    handleSelectAll,
-    navigateToUrlPage,
-    selected,
-    deleteSelectedUrls,
-    currentPage,
-    totalPages,
-    onPageChange,
-    visibleItems,
-  } = useCrawState(data);
+    crawlUrl,
+  } = useCrawState();
 
-  const columns = useMemo(() => {
-    return extractColumnsFromData(visibleItems || []);
-  }, [visibleItems]);
+  const isLoading = useCrawlerStore((state) => state.isLoading);
+  const crawledUrls = useCrawlerStore((state) => state.crawledUrls);
 
-  const urlActions = useMemo(
-    () => ({
-      navigateAction: navigateToUrlPage,
-      selectAction: handleSelectedMap,
-      handleSelectAll,
-      deleteSelectedUrls,
-    }),
-    [navigateToUrlPage, handleSelectedMap, handleSelectAll, deleteSelectedUrls],
-  );
+  // console.log({ jobStatus, progress, urls, isDone });
 
-  if (isLoading) return <p>Loading...</p>;
-  if (error) return <p>Failed to load data.</p>;
+  if (isLoading && !crawledUrls.length) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className={styles.dashboard}>
@@ -56,12 +35,13 @@ export const PostDashboard = () => {
           placeholder="Enter URL"
           label=""
           name="url"
+          helpText='Separate multiple URLs with ","'
         />
         <Button
           title="Get Analytics"
           onClick={handleCrawlSubmit}
           type="button"
-          disabled={!crawlUrl || isPending}
+          disabled={!crawlUrl || isLoading}
         />
       </div>
       {status && (
@@ -70,18 +50,7 @@ export const PostDashboard = () => {
           <ProgressBar />
         </div>
       )}
-      <Table
-        data={visibleItems || []}
-        columns={columns}
-        canDelete={true}
-        action={urlActions}
-        selected={selected}
-      />
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange}
-      />
+      <AllUrls />
     </div>
   );
 };

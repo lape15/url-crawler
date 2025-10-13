@@ -10,6 +10,10 @@ export const register = (credential: Credential) =>
 
 API.interceptors.request.use((config) => {
   if (config.url?.startsWith('/crawler')) {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return config;
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

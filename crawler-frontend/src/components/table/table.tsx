@@ -13,6 +13,7 @@ interface TableProps<T extends { ID: number; URL: string }> {
     navigateAction: (params: T) => void;
     handleSelectAll: (e?: React.ChangeEvent<HTMLInputElement>) => void;
     deleteSelectedUrls?: () => void;
+    handleBulkCrawlAction?: () => void;
   };
   selected: Map<string, string>;
 }
@@ -26,14 +27,23 @@ export function Table<T extends { ID: number; URL: string }>({
 }: TableProps<T>) {
   return (
     <div className={styles.tableWrapper}>
-      {selected.size > 0 && (
+      <div
+        className={`${styles.actions} ${selected.size > 0 && styles.selectedView}`}
+      >
         <Button
           title="Delete"
           type="button"
           disabled={selected.size === 0}
           onClick={action?.deleteSelectedUrls}
         />
-      )}
+        <Button
+          title="Crawl Selected"
+          type="button"
+          disabled={selected.size === 0}
+          onClick={action?.handleBulkCrawlAction}
+        />
+      </div>
+
       <table className={styles.table}>
         <thead className={styles.thead}>
           <tr>

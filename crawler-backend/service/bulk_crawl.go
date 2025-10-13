@@ -2,10 +2,16 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/lape15/sykell-task-root/service/job_store"
+	"github.com/lape15/sykell-task-root/utils"
 )
 
 // Holds URL-specific crawl state
@@ -17,6 +23,7 @@ type CrawlState struct {
 // Global map: url -> crawl state
 var urlCrawlStates = make(map[string]*CrawlState)
 var urlStateMutex sync.RWMutex
+var jobStore = job_store.NewJobStore()
 
 func HandleMultipleUrlCrawl(c *gin.Context) {
 	var input MultipleCrawledInput
@@ -29,18 +36,42 @@ func HandleMultipleUrlCrawl(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "No URLs provided"})
 		return
 	}
+	userId, _ := c.Get("userID")
+	user := userId.(string)
+
+	jobId := uuid.NewString()
+	_ = jobStore.Create(jobId, input.Urls)
+	ctx := context.Background()
 
 	const workerCount = 5
 	urlChan := make(chan string)
 	var wg sync.WaitGroup
 
-	// Start workers
+	_ = jobStore.Update(jobId, func(job *job_store.Job) error {
+		job.Status = job_store.JobRunning
+		return nil
+	})
+
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for u := range urlChan {
-				runCrawlJob(c, u)
+				start := time.Now()
+				_ = jobStore.SetURLStatus(jobId, u, job_store.StatusRunning, "", &start)
+				res, err := utils.RunCrawlJob(ctx, u, user)
+				fin := time.Now()
+				if err != nil {
+					_ = jobStore.SetURLStatus(jobId, u, job_store.StatusFailed, err.Error(), &fin)
+				} else {
+					_ = jobStore.Update(jobId, func(j *job_store.Job) error {
+						j.Result[u] = *res
+						p := j.Progress[u]
+						p.Status = job_store.StatusSuccess
+						p.FinishedAt = &fin
+						return nil
+					})
+				}
 			}
 		}()
 	}
@@ -52,56 +83,103 @@ func HandleMultipleUrlCrawl(c *gin.Context) {
 		close(urlChan)
 	}()
 
-	// Wait for all crawls to finish (async)
-	go func() {
-		wg.Wait()
-		// Optionally notify WS that all crawls finished
-		for _, u := range input.Urls {
-			ws := WSConnectionForURL(u)
-			if ws != nil {
-				ws.WriteJSON(gin.H{"status": "all_completed", "message": "All crawls finished"})
-			}
-		}
-	}()
+	// Finalize job status
 
-	// Respond immediately
-	c.JSON(http.StatusAccepted, gin.H{"message": "Crawls started", "urls": input.Urls})
+	go func(urls []string) {
+		wg.Wait()
+		_ = jobStore.Update(jobId, func(j *job_store.Job) error {
+			allOK := true
+			for _, p := range j.Progress {
+				if p.Status == job_store.StatusFailed {
+					allOK = false
+					break
+				}
+			}
+			if allOK {
+				j.Status = job_store.JobComplete
+			} else {
+				j.Status = job_store.JobFailed
+				j.Err = "one or more URLs failed"
+			}
+			return nil
+		})
+	}(input.Urls)
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"job_id":  jobId,
+		"message": "bulk url crawl started",
+	})
+
 }
 
-// Executes a single URL crawl, sends progress via WS
-func runCrawlJob(c *gin.Context, url string) {
-	ws := WSConnectionForURL(url)
-	if ws == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"url": url, "status": "error", "message": "No active WebSocket for this URL"})
+func HandleCrawlStatus(c *gin.Context) {
+	jobID := c.Param("jobID")
+
+	if j, ok := jobStore.Get(jobID); ok {
+		c.JSON(http.StatusOK, gin.H{
+			"job_id":   j.ID,
+			"status":   j.Status,
+			"progress": j.Progress,
+		})
 		return
 	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
+}
 
-	// Create cancellable context
-	ctx, cancel := context.WithCancel(context.Background())
-	urlStateMutex.Lock()
-	urlCrawlStates[url] = &CrawlState{Ctx: ctx, Cancel: cancel}
-	urlStateMutex.Unlock()
-	defer func() {
-		urlStateMutex.Lock()
-		delete(urlCrawlStates, url)
-		urlStateMutex.Unlock()
-	}()
-
-	// Run crawl
-	result, err := crawlWithContext(ctx, url, ws)
-	if err != nil {
-		if ctx.Err() != nil {
-			ws.WriteJSON(gin.H{"status": "cancelled", "message": "Crawl cancelled"})
-		} else {
-			ws.WriteJSON(gin.H{"status": "error", "message": err.Error()})
+func HandleCrawlResult(c *gin.Context) {
+	jobID := c.Param("jobID")
+	if j, ok := jobStore.Get(jobID); ok {
+		if j.Status == job_store.JobComplete || j.Status == job_store.JobFailed {
+			c.JSON(http.StatusOK, gin.H{
+				"job_id": j.ID,
+				"status": j.Status,
+				"result": j.Result,
+				"error":  j.Err,
+			})
+			return
 		}
+		c.JSON(http.StatusAccepted, gin.H{"job_id": j.ID, "status": j.Status, "message": "not finished yet"})
 		return
 	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
+}
 
-	// Send final result via WS
-	ws.WriteJSON(gin.H{
-		"status": "completed",
-		"url":    url,
-		"result": result,
-	})
+func HandleCrawlSSE(c *gin.Context) {
+	jobID := c.Param("jobID")
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+
+	t := time.NewTicker(1 * time.Second)
+	defer t.Stop()
+
+	flush := func(payload any) error {
+		b, _ := json.Marshal(payload)
+		if _, err := fmt.Fprintf(c.Writer, "data: %s\n\n", b); err != nil {
+			return err
+		}
+		c.Writer.Flush()
+		return nil
+	}
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-t.C:
+			if j, ok := jobStore.Get(jobID); ok {
+				_ = flush(gin.H{
+					"job_id":   j.ID,
+					"status":   j.Status,
+					"progress": j.Progress,
+				})
+				if j.Status == job_store.JobComplete || j.Status == job_store.JobFailed {
+					return
+				}
+			} else {
+				_ = flush(gin.H{"error": "job not found"})
+				return
+			}
+		}
+	}
 }

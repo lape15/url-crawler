@@ -33,5 +33,8 @@ export const deleteMultipleUrls = async (
 //   return res.data;
 // };
 
-export const bulkCrawl = (urls: string[]) =>
-  API.post('/crawler/urls/crawl', { urls });
+export const bulkCrawl = async (urls: string[]) => {
+  const res = await API.post('/crawler/urls/crawl', { urls });
+
+  return res.data;
+};

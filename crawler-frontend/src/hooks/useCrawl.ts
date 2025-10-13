@@ -13,6 +13,12 @@ export const useCrawl = () => {
   });
 };
 
+export const useCrawlUrSubmit = () => {
+  return useMutation({
+    mutationFn: (url: string[]) => bulkCrawl(url),
+  });
+};
+
 export const useCrawledURLs = () => {
   return useQuery({
     queryKey: ['crawledURLs'],

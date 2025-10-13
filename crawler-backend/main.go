@@ -35,6 +35,11 @@ func main() {
 	api.DELETE("/url", service.DeleteCrawled)
 	api.POST("/urls/delete", service.DeleteMultipleCrawled)
 	api.POST("urls/crawl", service.HandleMultipleUrlCrawl)
+	api.GET("/jobs/:jobID/status", service.HandleCrawlStatus)
+	api.GET("/jobs/:jobID/result", service.HandleCrawlResult)
+	// optional: live push via SSE
+	api.GET("/jobs/:jobID/stream", service.HandleCrawlSSE)
+
 	route.GET("/crawl", service.HandleCrawlWebSocket)
 
 	log.Println("Server running at http://localhost:8000")

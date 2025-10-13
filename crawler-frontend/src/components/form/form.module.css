@@ -25,3 +25,8 @@ label {
   color: red;
   font-size: 12px;
 }
+
+.helpText {
+  color: gray;
+  font-size: 12px;
+}

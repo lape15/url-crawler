@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -18,6 +17,10 @@ import (
 
 type CrawlerInput struct {
 	URL string `json:"url"`
+}
+
+type AdjustedCrawlerInput struct {
+	Urls []string `json:"urls"`
 }
 
 var visitedurls = make(map[string]bool)
@@ -65,6 +68,7 @@ func handleSuccessfulCrawl(result CrawlResult, url string, ws *websocket.Conn, c
 
 func CrawlURL(c *gin.Context) {
 	crawlerString := CrawlerInput{}
+	adjustedInput := AdjustedCrawlerInput{}
 	// if len(urls) > 0 {
 	// 	crawlerString.URL = urls[0]
 	// } else
@@ -74,69 +78,69 @@ func CrawlURL(c *gin.Context) {
 		})
 		return
 	}
+	adjustedInput.Urls = append(adjustedInput.Urls, crawlerString.URL)
+	// ws := WSConnectionForURL(crawlerString.URL)
+	// if ws == nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "No active WebSocket connection for this URL"})
+	// 	return
+	// }
 
-	ws := WSConnectionForURL(crawlerString.URL)
-	if ws == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No active WebSocket connection for this URL"})
-		return
-	}
+	// // Cancellation context
+	// // ctx, cancel := context.WithCancel(context.Background())
+	// ctx, cancel := context.WithCancel(c.Request.Context())
+	// defer cancel()
+	// crawlersMutex.Lock()
+	// activeCancelFns[crawlerString.URL] = cancel
 
-	// Cancellation context
-	// ctx, cancel := context.WithCancel(context.Background())
-	ctx, cancel := context.WithCancel(c.Request.Context())
-	defer cancel()
-	crawlersMutex.Lock()
-	activeCancelFns[crawlerString.URL] = cancel
+	// crawlersMutex.Unlock()
 
-	crawlersMutex.Unlock()
+	// defer func() {
+	// 	// Cleanup
 
-	defer func() {
-		// Cleanup
+	// 	crawlersMutex.Lock()
+	// 	delete(activeCancelFns, crawlerString.URL)
+	// 	delete(activeCrawlers, crawlerString.URL)
+	// 	crawlersMutex.Unlock()
+	// }()
 
-		crawlersMutex.Lock()
-		delete(activeCancelFns, crawlerString.URL)
-		delete(activeCrawlers, crawlerString.URL)
-		crawlersMutex.Unlock()
-	}()
+	// resultChan := make(chan CrawlResult, 1)
+	// errChan := make(chan error, 1)
+	// doneChan := make(chan struct{})
 
-	resultChan := make(chan CrawlResult, 1)
-	errChan := make(chan error, 1)
-	doneChan := make(chan struct{})
+	// go func() {
+	// 	defer close(doneChan)
+	// 	result, err := crawlWithContext(ctx, crawlerString.URL, ws)
+	// 	if err != nil {
+	// 		errChan <- err
+	// 		return
+	// 	}
+	// 	resultChan <- result
+	// }()
 
-	go func() {
-		defer close(doneChan)
-		result, err := crawlWithContext(ctx, crawlerString.URL, ws)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		resultChan <- result
-	}()
+	// select {
+	// case result := <-resultChan:
+	// 	// Double-check if context was cancelled before handling result
+	// 	if ctx.Err() != nil {
+	// 		ws.WriteJSON(gin.H{"status": "cancelled", "message": "Crawl was cancelled"})
+	// 		c.JSON(499, gin.H{"message": "Crawl cancelled by client"})
+	// 		return
+	// 	}
 
-	select {
-	case result := <-resultChan:
-		// Double-check if context was cancelled before handling result
-		if ctx.Err() != nil {
-			ws.WriteJSON(gin.H{"status": "cancelled", "message": "Crawl was cancelled"})
-			c.JSON(499, gin.H{"message": "Crawl cancelled by client"})
-			return
-		}
+	// 	handleSuccessfulCrawl(result, crawlerString.URL, ws, c)
 
-		handleSuccessfulCrawl(result, crawlerString.URL, ws, c)
+	// case err := <-errChan:
+	// 	if errors.Is(err, context.Canceled) {
+	// 		ws.WriteJSON(gin.H{"status": "cancelled", "message": "Crawl was cancelled"})
+	// 		c.JSON(499, gin.H{"message": "Crawl cancelled by client"})
+	// 	} else {
+	// 		ws.WriteJSON(gin.H{"status": "error", "message": err.Error()})
+	// 		c.JSON(500, gin.H{"error": err.Error()})
+	// 	}
 
-	case err := <-errChan:
-		if errors.Is(err, context.Canceled) {
-			ws.WriteJSON(gin.H{"status": "cancelled", "message": "Crawl was cancelled"})
-			c.JSON(499, gin.H{"message": "Crawl cancelled by client"})
-		} else {
-			ws.WriteJSON(gin.H{"status": "error", "message": err.Error()})
-			c.JSON(500, gin.H{"error": err.Error()})
-		}
-
-	case <-ctx.Done():
-		ws.WriteJSON(gin.H{"status": "cancelled", "message": "Crawl was cancelled"})
-		c.JSON(499, gin.H{"message": "Crawl cancelled by client"})
-	}
+	// case <-ctx.Done():
+	// 	ws.WriteJSON(gin.H{"status": "cancelled", "message": "Crawl was cancelled"})
+	// 	c.JSON(499, gin.H{"message": "Crawl cancelled by client"})
+	// }
 
 }
 

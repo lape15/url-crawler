@@ -8,10 +8,20 @@ type InputProps = {
   label: string;
   name: string;
   className?: string;
+  helpText?: string;
 };
 
 const Input = (props: InputProps) => {
-  const { type, onChange, value, placeholder, name, label, className } = props;
+  const {
+    type,
+    onChange,
+    value,
+    placeholder,
+    name,
+    label,
+    className,
+    helpText,
+  } = props;
   return (
     <div className={styles.fieldWrapper}>
       {label && <label className={styles.label}>{label}</label>}
@@ -23,6 +33,7 @@ const Input = (props: InputProps) => {
         className={[styles.input, className].join(' ')}
         name={name}
       />
+      {helpText && <p className={styles.helpText}>{helpText}</p>}
     </div>
   );
 };
