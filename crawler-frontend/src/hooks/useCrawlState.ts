@@ -38,6 +38,7 @@ export const useCrawState = () => {
 
   const handleCrawlSubmit = (url?: string) => {
     handleCrawlSearchSubmit(crawlUrl || (url as string));
+    setCrawlUrl('');
   };
 
   const navigateToUrlPage = useCallback(

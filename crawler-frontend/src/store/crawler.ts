@@ -100,14 +100,16 @@ export const useCrawlerStore = create<CrawlerState>()(
     jobId: null,
     actions: {
       deleteSelectedUrls: (mutateFn: MutateFnType) => {
-        const { selected, queryClient } = get();
+        const { selected, actions } = get();
+        const { fetchCrawledUrls } = actions;
         const urls = Array.from(selected.values());
         if (urls.length > 0) {
           set({ isLoading: true });
+
           mutateFn(urls, {
             onSuccess: () => {
               set({ selected: new Map(), isLoading: false });
-              queryClient!.invalidateQueries({ queryKey: ['crawledURLs'] });
+              fetchCrawledUrls();
             },
           });
         }
@@ -182,7 +184,7 @@ export const useCrawlerStore = create<CrawlerState>()(
           if (!item?.URL) continue;
           const idx = result.findIndex((r) => r.URL === item.URL);
           if (idx >= 0) {
-            result[idx] = { ...result[idx], ...item };
+            result[idx] = { ...item, ...result[idx] };
           } else {
             result.push(item);
           }

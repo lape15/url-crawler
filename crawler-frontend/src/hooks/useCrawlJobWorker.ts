@@ -22,7 +22,6 @@ export function useCrawlJobWorker(jobId: string | null, intervalMs = 1200) {
     const onMessage = (event: MessageEvent) => {
       const { type, jobId: jid, data } = event.data || {};
       if (type === 'RESULT') {
-        console.log({ type, jobId, data });
         updateCrawledUrls(data);
       }
       if (type !== 'SNAPSHOT' || jid !== jobId || !data) return;
