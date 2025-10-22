@@ -20,5 +20,25 @@ API.interceptors.request.use((config) => {
     }
   }
   config.headers['Content-Type'] = 'application/json';
+
   return config;
 });
+
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('token');
+
+        try {
+          history.replaceState(null, '', '/');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        } catch {
+          window.location.replace('/');
+        }
+      }
+    }
+    return Promise.reject(error);
+  },
+);

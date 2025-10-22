@@ -18,8 +18,6 @@ export const PostDashboard = () => {
   const isLoading = useCrawlerStore((state) => state.isLoading);
   const crawledUrls = useCrawlerStore((state) => state.crawledUrls);
 
-  // console.log({ jobStatus, progress, urls, isDone });
-
   if (isLoading && !crawledUrls.length) {
     return <div>Loading...</div>;
   }
